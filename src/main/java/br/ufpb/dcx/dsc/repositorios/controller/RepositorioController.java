@@ -1,67 +1,47 @@
 package br.ufpb.dcx.dsc.repositorios.controller;
 
 import br.ufpb.dcx.dsc.repositorios.dto.RepositorioDTO;
-import br.ufpb.dcx.dsc.repositorios.models.Repositorio;
 import br.ufpb.dcx.dsc.repositorios.services.RepositorioService;
-import org.modelmapper.ModelMapper;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping(path = "/api")
+@RequestMapping(path = "/api/repositorios")
 public class RepositorioController {
 
-    private ModelMapper modelMapper;
-    private RepositorioService repositorioService;
+    private final RepositorioService repositorioService;
 
-    public RepositorioController(RepositorioService repositorioService, ModelMapper modelMapper) {
+    public RepositorioController(RepositorioService repositorioService) {
         this.repositorioService = repositorioService;
-        this.modelMapper = modelMapper;
     }
 
-    @GetMapping(path = "/repositorio/{repoId}")
+    @GetMapping("/{repoId}")
     public RepositorioDTO getRepositorio(@PathVariable Long repoId) {
-        Repositorio t = repositorioService.getRepositorio(repoId);
-        return convertToDTO(t);
+        return repositorioService.getRepositorio(repoId);
     }
 
-    @GetMapping("/repositorio")
-    public List<RepositorioDTO> getFilteredRepositorios() {
-        List<Repositorio> repositorios = repositorioService.listRepositorios();
-        return repositorios.stream().map(task -> convertToDTO(task)).collect(Collectors.toList());
+    @GetMapping
+    public List<RepositorioDTO> getFilteredRepositorios(@RequestParam(name = "organizationId", required = false) Long organizationId) {
+        return repositorioService.listRepositorios(organizationId);
     }
 
-    @PostMapping("/organizacao/{orgId}/repositorio")
-    public RepositorioDTO createRepositorio(@Valid @PathVariable Long orgId, @RequestBody RepositorioDTO repoDTO) {
-        Repositorio r = convertToEntity(repoDTO);
-        Repositorio repoCreated = repositorioService.saveRepositorio(r, orgId);
-        System.out.println(repoCreated);
-        return convertToDTO(repoCreated);
+    @PostMapping
+    public ResponseEntity<RepositorioDTO> createRepositorio(@Valid @RequestBody RepositorioDTO repositorioDTO) {
+        RepositorioDTO createdRepo = repositorioService.saveRepositorio(repositorioDTO);
+        return new ResponseEntity<>(createdRepo, HttpStatus.CREATED);
     }
 
-    @PutMapping("/repositorio/{repoId}")
-    public RepositorioDTO updateRepositorio(@PathVariable Long repoId, @RequestBody RepositorioDTO repoDTO) {
-        Repositorio t = convertToEntity(repoDTO);
-        Repositorio taskCreated = repositorioService.updateRepositorio(repoId, t);
-        return convertToDTO(taskCreated);
+    @PutMapping("/{repoID}")
+    public RepositorioDTO updateRepositorio(@PathVariable Long repoID, @Valid @RequestBody RepositorioDTO repositorioDTO) {
+        return repositorioService.updateRepositorio(repoID, repositorioDTO);
     }
 
-    @ResponseStatus(HttpStatus.OK)
-    @DeleteMapping("/repositorio/{repoId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @DeleteMapping("/{repoId}")
     public void deleteRepositorio(@PathVariable Long repoId) {
         repositorioService.deleteRepositorio(repoId);
-    }
-
-
-    private RepositorioDTO convertToDTO(Repositorio t) {
-        return modelMapper.map(t, RepositorioDTO.class);
-    }
-
-    private Repositorio convertToEntity(RepositorioDTO taskDTO) {
-        return modelMapper.map(taskDTO, Repositorio.class);
     }
 }

@@ -1,9 +1,6 @@
 package br.ufpb.dcx.dsc.repositorios.dto;
 
-import br.ufpb.dcx.dsc.repositorios.models.Repositorio;
-
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 public class RepositorioDTO {
 

@@ -1,103 +1,87 @@
 package br.ufpb.dcx.dsc.repositorios.services;
 
+import br.ufpb.dcx.dsc.repositorios.api.ResourceNotFoundException;
+import br.ufpb.dcx.dsc.repositorios.dto.UserDTO;
 import br.ufpb.dcx.dsc.repositorios.models.Photo;
 import br.ufpb.dcx.dsc.repositorios.models.User;
 import br.ufpb.dcx.dsc.repositorios.repository.PhotoRepository;
 import br.ufpb.dcx.dsc.repositorios.repository.UserRepository;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
-
 public class UserService {
-    private UserRepository userRepository;
-    private PhotoRepository photoRepository;
 
-    public UserService( UserRepository userRepository, PhotoRepository photoRepository){
+    private final UserRepository userRepository;
+    private final PhotoRepository photoRepository;
+    private final ModelMapper modelMapper;
+
+    public UserService(UserRepository userRepository, PhotoRepository photoRepository, ModelMapper modelMapper) {
         this.userRepository = userRepository;
         this.photoRepository = photoRepository;
+        this.modelMapper = modelMapper;
     }
 
-    public List<User> listUsers() {
-        return userRepository.findAll();
-    }
-    public User getUser(Long userId) {
-
-        if(userId != null)
-            return userRepository.getReferenceById(userId);
-        return null;
+    public List<UserDTO> listAllUsers() {
+        List<User> users = userRepository.findAll();
+        return users.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    public User createUser(User user){
-
-        Photo photo = new Photo("www.exemplo.com/foto.png");
-        photoRepository.save(photo);
-        user.setPhoto(photo);
-        return userRepository.save(user);
+    public UserDTO getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
+        return convertToDTO(user);
     }
 
-    public User updateUser(Long userId, User u) {
-        Optional<User> userOpt = userRepository.findById(userId);
-        if(userOpt.isPresent()){
-            User user = userOpt.get();
-            user.setEmail(u.getEmail());
-            user.setNome(u.getNome());
-            return userRepository.save(user);
+    public UserDTO createUser(UserDTO userDTO) {
+        User user = new User();
+        user.setNome(userDTO.getNome());
+        user.setEmail(userDTO.getEmail());
+
+        // Relacionamento com Photo
+        if (userDTO.getPhoto() != null && userDTO.getPhoto().getPhotoId() != null) {
+            Photo photo = photoRepository.findById(userDTO.getPhoto().getPhotoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Photo not found with ID: " + userDTO.getPhoto().getPhotoId()));
+            user.setPhoto(photo);
         }
-        return null;
+
+        User savedUser = userRepository.save(user);
+        return convertToDTO(savedUser);
     }
 
-    public void deleteUser(Long userId) {
-    /*    Optional<User> uOpt = userRepository.findById(userId);
-        User u = uOpt.get();
-        if(uOpt.isPresent()){
-            // Remove all boards shared with me
-            u.getBoardsShared().removeAll(u.getBoardsShared());
-            // Remove users who share my boards
-            Collection<Board> myBoards = u.getBoards();
-            myBoards.stream().forEach(board -> {
-                Collection<User> users = board.getUsers();
-                users.stream().forEach(user -> {
-                    user.getBoardsShared().remove(board);
-                    userRepository.save(user);
-                });
-                boardRepository.save(board);
-            });
-            userRepository.save(u);
-            userRepository.delete(u);
+    public UserDTO updateUser(Long id, UserDTO userDTO) {
+        User existingUser = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
+
+        existingUser.setNome(userDTO.getNome());
+        existingUser.setEmail(userDTO.getEmail());
+
+        // Relacionamento com Photo
+        if (userDTO.getPhoto() != null && userDTO.getPhoto().getPhotoId() != null) {
+            Photo photo = photoRepository.findById(userDTO.getPhoto().getPhotoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Photo not found with ID: " + userDTO.getPhoto().getPhotoId()));
+            existingUser.setPhoto(photo);
         }
-            */
+
+        User updatedUser = userRepository.save(existingUser);
+        return convertToDTO(updatedUser);
     }
 
-//    public Album share(Long albumId, Long userId, Long figId){
-//        Optional<User> uOpt = userRepository.findById(userId);
-//        Optional<Album> aOpt = albumRepository.findById(albumId);
-//        Optional<Figurinha> fOpt = figurinhaRepository.findById(albumId);
-//
-//        if(uOpt.isPresent() && aOpt.isPresent() && fOpt.isPresent()){
-//            if(aOpt.get().getUser().getUserId() == uOpt.get().getUserId()){
-//                Album a = aOpt.get();
-//                a.getFigurinhas().add(fOpt.get());
-//                return albumRepository.save(a);
-//            }
-//        }
-//
-//        return null;
-//    }
-/*
-    public User unshare(Long boardId, Long userId) {
-        Optional<User> uOpt = userRepository.findById(userId);
-        Optional<Board> bOpt = boardRepository.findById(boardId);
-        if(uOpt.isPresent() && bOpt.isPresent()){
-            User u = uOpt.get();
-            u.getBoardsShared().remove(bOpt.get());
-            return userRepository.save(u);
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new ResourceNotFoundException("User not found with ID: " + id);
         }
-        return null;
+        userRepository.deleteById(id);
     }
-*/
 
+    private UserDTO convertToDTO(User user) {
+        UserDTO dto = modelMapper.map(user, UserDTO.class);
+        if (user.getPhoto() != null) {
+            dto.setPhoto(user.getPhoto());
+        }
+        return dto;
+    }
 }

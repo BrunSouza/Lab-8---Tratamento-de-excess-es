@@ -1,67 +1,55 @@
 package br.ufpb.dcx.dsc.repositorios.services;
 
-import br.ufpb.dcx.dsc.repositorios.models.Photo;
+import br.ufpb.dcx.dsc.repositorios.api.ResourceNotFoundException;
+import br.ufpb.dcx.dsc.repositorios.dto.OrganizacaoDTO;
 import br.ufpb.dcx.dsc.repositorios.models.Organizacao;
-import br.ufpb.dcx.dsc.repositorios.models.User;
 import br.ufpb.dcx.dsc.repositorios.repository.OrganizacaoRepository;
-import br.ufpb.dcx.dsc.repositorios.repository.UserRepository;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class OrganizacaoService {
-    private OrganizacaoRepository organizacaoRepository;
-    private UserRepository userRepository;
-    public OrganizacaoService( UserRepository userRepository, OrganizacaoRepository organizacaoRepository){
-        this.organizacaoRepository = organizacaoRepository;
-        this.userRepository = userRepository;
+
+    private final OrganizacaoRepository OrganizacaoRepository;
+    private final ModelMapper modelMapper;
+
+    public OrganizacaoService(OrganizacaoRepository OrganizacaoRepository, ModelMapper modelMapper) {
+        this.OrganizacaoRepository = OrganizacaoRepository;
+        this.modelMapper = modelMapper;
     }
 
-    public List<Organizacao> listOrganizacoes() {
-        return organizacaoRepository.findAll();
-    }
-    public Organizacao getOrganizacao(Long orgId) {
-        if(orgId != null)
-            return organizacaoRepository.getReferenceById(orgId);
-        return null;
+    public List<OrganizacaoDTO> listAllOrganizacaos() {
+        List<Organizacao> Organizacaos = OrganizacaoRepository.findAll();
+        return Organizacaos.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    public Organizacao createOrganizacao(Organizacao org, Long userId){
-        Optional<User> uOpt = userRepository.findById(userId);
-        if(uOpt.isPresent()){
-            Organizacao o = organizacaoRepository.save(org);
-            User u = uOpt.get();
-            u.getOrganizacaos().add(org);
-            userRepository.save(u);
-            return o;
+    public OrganizacaoDTO createOrganizacao(OrganizacaoDTO OrganizacaoDTO) {
+        Organizacao Organizacao = new Organizacao();
+        Organizacao.setNome(OrganizacaoDTO.getNome());
+        Organizacao savedOrganizacao = OrganizacaoRepository.save(Organizacao);
+        return convertToDTO(savedOrganizacao);
+    }
+
+    public OrganizacaoDTO updateOrganizacao(Long id, OrganizacaoDTO OrganizacaoDTO) {
+        Organizacao existingOrganizacao = OrganizacaoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Organizacao not found with ID: " + id));
+
+        existingOrganizacao.setNome(OrganizacaoDTO.getNome());
+        Organizacao updatedOrganizacao = OrganizacaoRepository.save(existingOrganizacao);
+        return convertToDTO(updatedOrganizacao);
+    }
+
+    public void deleteOrganizacao(Long id) {
+        if (!OrganizacaoRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Organizacao not found with ID: " + id);
         }
-        return null;
+        OrganizacaoRepository.deleteById(id);
     }
 
-    public Organizacao updateOrganizacao(Long orgId, Organizacao o) {
-        Optional<Organizacao> orgOpt = organizacaoRepository.findById(orgId);
-        if(orgOpt.isPresent()){
-            Organizacao org = orgOpt.get();
-            org.setNome(o.getNome());
-            return organizacaoRepository.save(org);
-        }
-        return null;
-    }
-
-    public void deleteOrganizacao(Long orgId) {
-        Optional<Organizacao> oOpt = organizacaoRepository.findById(orgId);
-        if(oOpt.isPresent()){
-            Organizacao o = oOpt.get();
-
-            o.getUsers().stream().forEach( user -> {
-                user.getOrganizacaos().remove(o);
-                userRepository.save(user);
-            });
-            o.getUsers().removeAll(o.getUsers());
-            organizacaoRepository.delete(o);
-        }
+    private OrganizacaoDTO convertToDTO(Organizacao Organizacao) {
+        return modelMapper.map(Organizacao, OrganizacaoDTO.class);
     }
 }

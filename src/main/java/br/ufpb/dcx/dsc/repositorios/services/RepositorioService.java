@@ -1,52 +1,92 @@
 package br.ufpb.dcx.dsc.repositorios.services;
 
+import br.ufpb.dcx.dsc.repositorios.api.ResourceNotFoundException;
+import br.ufpb.dcx.dsc.repositorios.dto.RepositorioDTO;
 import br.ufpb.dcx.dsc.repositorios.models.Organizacao;
 import br.ufpb.dcx.dsc.repositorios.models.Repositorio;
 import br.ufpb.dcx.dsc.repositorios.repository.OrganizacaoRepository;
 import br.ufpb.dcx.dsc.repositorios.repository.RepositorioRepository;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class RepositorioService {
 
-    private RepositorioRepository repositorioRepository;
-    private OrganizacaoRepository organizacaoRepository;
-    RepositorioService(RepositorioRepository repositorioRepository, OrganizacaoRepository organizacaoRepository){
-        this.repositorioRepository=repositorioRepository;
+    private final RepositorioRepository repositorioRepository;
+    private final OrganizacaoRepository organizacaoRepository;
+    private final ModelMapper modelMapper;
+
+    public RepositorioService(RepositorioRepository repositorioRepository, OrganizacaoRepository organizacaoRepository, ModelMapper modelMapper) {
+        this.repositorioRepository = repositorioRepository;
         this.organizacaoRepository = organizacaoRepository;
-    }
-    public Repositorio getRepositorio(Long id){
-        return repositorioRepository.getReferenceById(id);
+        this.modelMapper = modelMapper;
     }
 
-    public List<Repositorio> listRepositorios() {
-        return repositorioRepository.findAll();
+    public RepositorioDTO getRepositorio(Long id) {
+        Repositorio repositorio = repositorioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Repositório não encontrado com o ID: " + id));
+        return convertToDTO(repositorio);
     }
 
-    public Repositorio saveRepositorio(Repositorio r, Long orgId) {
-        Optional<Organizacao> oOpt = organizacaoRepository.findById(orgId);
-        if(oOpt.isPresent()){
-            r.setOrganizacao(oOpt.get());
-            return repositorioRepository.save(r);
+    public List<RepositorioDTO> listRepositorios(Long organizacaoId) {
+        List<Repositorio> repositorios;
+
+        if (organizacaoId != null) {
+            repositorios = repositorioRepository.findByOrganizationId(organizacaoId);
+        } else {
+            repositorios = repositorioRepository.findAll();
         }
-        return null;
 
+        return repositorios.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public RepositorioDTO saveRepositorio(RepositorioDTO dto) {
+        Organizacao organizacao = organizacaoRepository.findById(dto.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Organização não encontrada com o ID: " + dto.getId()));
+
+        Repositorio r = new Repositorio();
+        r.setNome(dto.getNome());
+        r.setIsPrivate(dto.getIsPrivate());
+        r.setOrganizacao(organizacao);
+
+        Repositorio savedRepositorio = repositorioRepository.save(r);
+        return convertToDTO(savedRepositorio);
     }
 
     public void deleteRepositorio(Long id) {
+        if (!repositorioRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Repositório não encontrado com o ID: " + id);
+        }
         repositorioRepository.deleteById(id);
     }
 
-    public Repositorio updateRepositorio(Long id, Repositorio rUpdated) {
-        Optional<Repositorio> r = repositorioRepository.findById(id);
-        if(r.isPresent()){
-            Repositorio toUpdate = r.get();
-            toUpdate.setIsPrivate(rUpdated.getIsPrivate());
-            toUpdate.setNome(rUpdated.getNome());
-            repositorioRepository.save(toUpdate);
+    public RepositorioDTO updateRepositorio(Long id, RepositorioDTO dto) {
+        Repositorio toUpdate = repositorioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Repositório não encontrado com o ID: " + id));
+
+        toUpdate.setNome(dto.getNome());
+        toUpdate.setIsPrivate(dto.getIsPrivate());
+
+        if (dto.getId() != null) {
+            Organizacao newOrganizacao = organizacaoRepository.findById(dto.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Organização não encontrada com o ID: " + dto.getId()));
+            toUpdate.setOrganizacao(newOrganizacao);
         }
-        return null;
+
+        Repositorio updatedRepositorio = repositorioRepository.save(toUpdate);
+        return convertToDTO(updatedRepositorio);
+    }
+
+    private RepositorioDTO convertToDTO(Repositorio repositorio) {
+        RepositorioDTO dto = modelMapper.map(repositorio, RepositorioDTO.class);
+        if (repositorio.getOrganizacao() != null) {
+            dto.setId(repositorio.getOrganizacao().getOrgId());
+        }
+        return dto;
     }
 }

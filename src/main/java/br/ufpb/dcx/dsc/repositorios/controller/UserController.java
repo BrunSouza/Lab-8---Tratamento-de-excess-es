@@ -1,79 +1,47 @@
 package br.ufpb.dcx.dsc.repositorios.controller;
 
 import br.ufpb.dcx.dsc.repositorios.dto.UserDTO;
-import br.ufpb.dcx.dsc.repositorios.models.User;
 import br.ufpb.dcx.dsc.repositorios.services.UserService;
-import org.modelmapper.ModelMapper;
-import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping(path = "/api")
-@Validated
+@RequestMapping(path = "/api/users")
 public class UserController {
 
     private final UserService userService;
-    private final ModelMapper modelMapper;
 
-    public  UserController(UserService userService, ModelMapper modelMapper){
+    public UserController(UserService userService) {
         this.userService = userService;
-        this.modelMapper = modelMapper;
     }
 
-    @GetMapping(path = "/user")
-    List<User> listUsers(){
-        return userService.listUsers();
+    @GetMapping
+    public List<UserDTO> getAllUsers() {
+        return userService.listAllUsers();
     }
 
-    @GetMapping("/user/{userId}")
-    public UserDTO getUser(@PathVariable @Min(0) Long userId){
-        User user = userService.getUser(userId);
-        return convertToDTO(user);
+    @GetMapping("/{id}")
+    public UserDTO getUserById(@PathVariable Long id) {
+        return userService.getUserById(id);
     }
 
-
-    @PostMapping(path = "/user")
-    UserDTO createUser(@Valid @RequestBody UserDTO userDTO){
-        User u = convertToEntity(userDTO);
-        User saved = userService.createUser(u);
-        return convertToDTO(saved);
+    @PostMapping
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO userDTO) {
+        UserDTO createdUser = userService.createUser(userDTO);
+        return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
     }
 
-    @PutMapping("/user/{userId}")
-    public UserDTO updateTask(@PathVariable Long userId, @RequestBody UserDTO userDTO){
-
-        User u = convertToEntity(userDTO);
-        User userUpdated = userService.updateUser(userId, u);
-        return convertToDTO(userUpdated);
+    @PutMapping("/{id}")
+    public UserDTO updateUser(@PathVariable Long id, @Valid @RequestBody UserDTO userDTO) {
+        return userService.updateUser(id, userDTO);
     }
 
-    @ResponseStatus(HttpStatus.OK)
-    @DeleteMapping("/user/{userId}")
-    public void deleteUser(@PathVariable Long userId){
-        userService.deleteUser(userId);
-    }
-
-/*    @GetMapping("/board/{boardId}/user/{userId}/share")
-    public AlbumDTO addFig(@PathVariable Long userId, @PathVariable Long boardId){
-        Album u = userService.share (boardId, userId);
-        return convertToDTO(u);
-    }
-    @DeleteMapping("/board/{boardId}/user/{userId}/share")
-    public UserDTO removeFig(@PathVariable Long userId, @PathVariable Long boardId){
-        User u = userService.unshare(boardId, userId);
-        return convertToDTO(u);
-    }*/
-
-    private UserDTO convertToDTO(User u) {
-        return modelMapper.map(u, UserDTO.class);
-    }
-
-    private User convertToEntity(UserDTO userDTO) {
-        return modelMapper.map(userDTO, User.class);
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
     }
 }
